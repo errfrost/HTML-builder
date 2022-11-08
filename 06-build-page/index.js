@@ -1,4 +1,4 @@
-const { readdir } = require('fs/promises');
+const { readdir, readFile, writeFile } = require('fs/promises');
 const path = require('path');
 const fs = require('fs');
 
@@ -38,7 +38,7 @@ async function copyAssets(pathFrom, pathTo, dirName) {
 
 async function collectCSS() {
   try {
-    const outputStyles = fs.createWriteStream(path.join(dirOut, 'bundle.css'), 'utf-8');
+    const outputStyles = fs.createWriteStream(path.join(dirOut, 'style.css'), 'utf-8');
     const files = await readdir(dirStyles);
     for (const file of files)
       if (path.extname(file).substring(1).toLowerCase() === 'css') {
@@ -51,9 +51,27 @@ async function collectCSS() {
 }
 
 async function collectHTML() {
-  const inputTemplate = fs.createReadStream(path.join(__dirname, 'template.html'), 'utf-8');
-  const outputIndex = fs.createWriteStream(path.join(dirOut, 'index.html'), 'utf-8');
-  inputTemplate.pipe(outputIndex);
+//  const inputTemplate = fs.createReadStream(path.join(__dirname, 'template.html'), 'utf-8');
+//  const outputIndex = fs.createWriteStream(path.join(dirOut, 'index.html'), 'utf-8');
+//  inputTemplate.pipe(outputIndex);
+
+  try {
+    let template = (await readFile(path.join(__dirname, 'template.html'))).toString();
+    const templateComponents = template.match(/{{(.*)}}/gi);
+
+    if (templateComponents) {
+      for await (const component of templateComponents) {
+        const componentName = component.replace('{{', '').replace('}}', '');
+        const componentSource = (await readFile(path.join(dirComponents, componentName+'.html'))).toString();
+        template = template.replace(component, componentSource);
+      }
+
+      await writeFile(path.join(dirOut, 'index.html'), template);
+    }
+
+  } catch (err) {
+    console.log(err.message);
+  }
 }
 
 async function htmlBuilder() {
